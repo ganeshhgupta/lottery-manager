@@ -2,26 +2,27 @@ import { NextRequest, NextResponse } from "next/server";
 import { getIronSession } from "iron-session";
 import { sessionOptions, SessionData } from "@/lib/session";
 
-const PUBLIC_PATHS = ["/login", "/api/auth/login", "/dashboard", "/api/auth/me"];
+// Only these paths require a valid session
+const PROTECTED_PATHS = [
+  "/closing",
+  "/tickets",
+  "/manager",
+  "/api/closing",
+  "/api/tickets",
+  "/api/manager",
+];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Allow public paths and Next.js internals
-  if (
-    PUBLIC_PATHS.some((p) => pathname.startsWith(p)) ||
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/favicon")
-  ) {
-    return NextResponse.next();
-  }
+  const needsAuth = PROTECTED_PATHS.some((p) => pathname.startsWith(p));
+  if (!needsAuth) return NextResponse.next();
 
   const res = NextResponse.next();
   const session = await getIronSession<SessionData>(req, res, sessionOptions);
 
   if (!session.employeeId) {
-    const loginUrl = new URL("/login", req.url);
-    return NextResponse.redirect(loginUrl);
+    return NextResponse.redirect(new URL("/login", req.url));
   }
 
   // Manager-only routes
