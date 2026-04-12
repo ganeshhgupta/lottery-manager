@@ -6,14 +6,6 @@ import { appendClosingEntryToSheet } from "@/lib/sheets";
 import { Shift, ClosingLogEntry, ClosingDelta } from "@/lib/types";
 import { v4 as uuidv4 } from "uuid";
 
-function getAllowedShift(): Shift {
-  const hour = new Date().getHours();
-  // Morning: 5–12, Day: 13–20, Night: 21–23 or 0–4
-  if (hour >= 5 && hour <= 12) return "Morning";
-  if (hour >= 13 && hour <= 20) return "Day";
-  return "Night";
-}
-
 export async function POST(req: NextRequest) {
   const res = NextResponse.json({ ok: false });
   const session = await getIronSession<SessionData>(req, res, sessionOptions);
@@ -31,23 +23,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
   }
 
-  const allowedShift = getAllowedShift();
-  if (shift !== allowedShift) {
-    return NextResponse.json(
-      {
-        error: `Selected shift does not match current time. Current allowed shift: ${allowedShift}`,
-      },
-      { status: 400 }
-    );
-  }
-
   const data = await readData();
 
-  // Build changes array
+  // Build changes array — accept any 0–999 count
   const changes: ClosingDelta[] = data.slots.map((slot) => {
     const key = String(slot.slotNumber);
-    const newCount =
-      key in counts ? Math.max(0, Math.floor(Number(counts[key]))) : slot.currentCount;
+    const raw = key in counts ? Number(counts[key]) : slot.currentCount;
+    const newCount = Math.min(999, Math.max(0, Math.floor(raw)));
     const delta = newCount - slot.currentCount;
     return {
       slotNumber: slot.slotNumber,

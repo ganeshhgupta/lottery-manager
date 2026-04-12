@@ -95,7 +95,7 @@ export default function DashboardClient({ slots: initialSlots, closingLog: initi
             <span className="text-xl font-bold text-white">LotteryAudit</span>
           </div>
           <div className="flex items-center gap-3">
-            {userInfo && (
+            {userInfo ? (
               <>
                 <span className="text-slate-300 text-sm hidden sm:inline">{userInfo.employeeName}</span>
                 <span className={`text-xs px-2 py-1 rounded-full font-medium ${
@@ -110,14 +110,21 @@ export default function DashboardClient({ slots: initialSlots, closingLog: initi
                     Manager Panel
                   </a>
                 )}
+                <button
+                  onClick={handleLogout}
+                  className="bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  Logout
+                </button>
               </>
+            ) : (
+              <a
+                href="/login"
+                className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-4 py-1.5 rounded-lg transition-colors font-medium"
+              >
+                Sign In
+              </a>
             )}
-            <button
-              onClick={handleLogout}
-              className="bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm px-3 py-1.5 rounded-lg transition-colors"
-            >
-              Logout
-            </button>
           </div>
         </div>
       </header>
@@ -186,8 +193,8 @@ export default function DashboardClient({ slots: initialSlots, closingLog: initi
           </div>
         </div>
 
-        {/* Action buttons */}
-        {isLatest && (
+        {/* Action buttons — only shown to logged-in users on latest version */}
+        {isLatest && userInfo && (
           <div className="flex flex-wrap gap-3 mb-5">
             <button
               onClick={() => setShowClosingModal(true)}
@@ -199,7 +206,7 @@ export default function DashboardClient({ slots: initialSlots, closingLog: initi
               onClick={() => setShowAddTicketModal(true)}
               className="bg-slate-700 hover:bg-slate-600 text-white font-medium px-5 py-2.5 rounded-lg transition-colors flex items-center gap-2"
             >
-              <span>🎟️</span> Add New Ticket
+              <span>🎟️</span> Edit Ticket
             </button>
           </div>
         )}
@@ -243,34 +250,43 @@ export default function DashboardClient({ slots: initialSlots, closingLog: initi
           </table>
         </div>
 
-        {/* Mobile cards */}
-        <div className="md:hidden grid grid-cols-1 gap-3">
-          {displaySlots.map((slot) => (
-            <div
-              key={slot.slotNumber}
-              className="bg-slate-800 rounded-xl border border-slate-700 p-4 flex items-center gap-4"
-            >
-              <TicketImage imageUrl={slot.imageUrl} ticketName={slot.ticketName} size={56} />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <div className="text-xs text-slate-500 font-mono">Slot {slot.slotNumber}</div>
-                    <div className="text-white font-medium text-sm truncate">{slot.ticketName}</div>
+        {/* Mobile 6-column icon grid */}
+        <div className="md:hidden grid grid-cols-6 gap-2">
+          {displaySlots.map((slot) => {
+            const hasCount = !(slot.lastClosingDate === "" && slot.currentCount === 0);
+            return (
+              <div
+                key={slot.slotNumber}
+                className="flex flex-col items-center gap-1"
+              >
+                {/* Square ticket image */}
+                <div className="relative w-full aspect-square">
+                  <TicketImage
+                    imageUrl={slot.imageUrl}
+                    ticketName={slot.ticketName}
+                    size={0}
+                    fill
+                  />
+                  {/* Slot number badge */}
+                  <div className="absolute top-0.5 left-0.5 bg-black/60 text-white text-[9px] font-bold px-1 rounded leading-tight">
+                    {slot.slotNumber}
                   </div>
-                  <div className="text-right flex-shrink-0">
-                    <div className="text-xs text-slate-500 mb-0.5">Count</div>
-                    <div className={`font-mono text-xl font-bold ${
-                      slot.lastClosingDate === "" && slot.currentCount === 0
-                        ? "text-slate-500"
-                        : "text-indigo-300"
-                    }`}>
-                      {slot.lastClosingDate === "" && slot.currentCount === 0 ? "—" : slot.currentCount}
-                    </div>
+                  {/* Count badge */}
+                  <div className={`absolute bottom-0.5 right-0.5 text-[10px] font-bold px-1 rounded leading-tight ${
+                    hasCount
+                      ? "bg-indigo-600/80 text-white"
+                      : "bg-slate-700/70 text-slate-400"
+                  }`}>
+                    {hasCount ? slot.currentCount : "—"}
                   </div>
                 </div>
+                {/* Ticket name — truncated */}
+                <div className="text-[9px] text-slate-400 text-center leading-tight w-full truncate px-0.5">
+                  {slot.ticketName}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </main>
 

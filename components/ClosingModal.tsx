@@ -112,6 +112,7 @@ export default function ClosingModal({ slots, onClose, onSuccess }: Props) {
                       <input
                         type="number"
                         min={0}
+                        max={999}
                         value={counts[slot.slotNumber] ?? ""}
                         onChange={(e) =>
                           setCounts((prev) => ({ ...prev, [slot.slotNumber]: e.target.value }))
