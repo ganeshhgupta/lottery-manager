@@ -3,11 +3,10 @@ import { getIronSession } from "iron-session";
 import { sessionOptions, SessionData } from "@/lib/session";
 
 // Only these paths require a valid session
+// Note: /api/closing/submit handles its own auth via employeeId+pin in body
 const PROTECTED_PATHS = [
-  "/closing",
   "/tickets",
   "/manager",
-  "/api/closing",
   "/api/tickets",
   "/api/manager",
 ];
