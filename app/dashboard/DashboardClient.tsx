@@ -193,8 +193,8 @@ export default function DashboardClient({ slots: initialSlots, closingLog: initi
           </div>
         </div>
 
-        {/* Action buttons — only shown to logged-in users on latest version */}
-        {isLatest && userInfo && (
+        {/* Closing entry visible to all; Edit Ticket only for logged-in users */}
+        {isLatest && (
           <div className="flex flex-wrap gap-3 mb-5">
             <button
               onClick={() => setShowClosingModal(true)}
@@ -202,12 +202,14 @@ export default function DashboardClient({ slots: initialSlots, closingLog: initi
             >
               <span>+</span> Add Closing Entry
             </button>
-            <button
-              onClick={() => setShowAddTicketModal(true)}
-              className="bg-slate-700 hover:bg-slate-600 text-white font-medium px-5 py-2.5 rounded-lg transition-colors flex items-center gap-2"
-            >
-              <span>🎟️</span> Edit Ticket
-            </button>
+            {userInfo && (
+              <button
+                onClick={() => setShowAddTicketModal(true)}
+                className="bg-slate-700 hover:bg-slate-600 text-white font-medium px-5 py-2.5 rounded-lg transition-colors flex items-center gap-2"
+              >
+                <span>🎟️</span> Edit Ticket
+              </button>
+            )}
           </div>
         )}
 

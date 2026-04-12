@@ -1,4 +1,4 @@
-export type Shift = "Morning" | "Day" | "Night";
+export type Shift = "Morning" | "Afternoon" | "Night";
 export type Role = "employee" | "manager";
 
 export interface Slot {

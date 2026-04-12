@@ -1,29 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getIronSession } from "iron-session";
-import { sessionOptions, SessionData } from "@/lib/session";
 import { readData, writeData } from "@/lib/db";
 import { appendClosingEntryToSheet } from "@/lib/sheets";
 import { Shift, ClosingLogEntry, ClosingDelta } from "@/lib/types";
 import { v4 as uuidv4 } from "uuid";
 
 export async function POST(req: NextRequest) {
-  const res = NextResponse.json({ ok: false });
-  const session = await getIronSession<SessionData>(req, res, sessionOptions);
-  if (!session.employeeId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   const body = await req.json();
-  const { shift, counts } = body as {
+  const { employeeId, pin, shift, counts } = body as {
+    employeeId: string;
+    pin: string;
     shift: Shift;
     counts: Record<string, number>;
   };
 
-  if (!shift || !counts) {
+  if (!employeeId || !pin || !shift || !counts) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
   }
 
   const data = await readData();
+
+  // Re-verify credentials server-side
+  const employee = data.employees.find((e) => e.id === employeeId && e.pin === pin);
+  if (!employee) {
+    return NextResponse.json({ error: "Invalid ID or PIN" }, { status: 401 });
+  }
 
   // Build changes array — accept any 0–999 count
   const changes: ClosingDelta[] = data.slots.map((slot) => {
@@ -49,12 +49,11 @@ export async function POST(req: NextRequest) {
     timestamp,
     date,
     shift,
-    employeeId: session.employeeId,
-    employeeName: session.employeeName,
+    employeeId: employee.id,
+    employeeName: employee.name,
     changes,
   };
 
-  // Update slots
   data.slots = data.slots.map((slot) => {
     const change = changes.find((c) => c.slotNumber === slot.slotNumber)!;
     return {
@@ -62,17 +61,15 @@ export async function POST(req: NextRequest) {
       currentCount: change.newCount,
       lastClosingDate: date,
       lastClosingShift: shift,
-      lastClosingEmployee: session.employeeName,
+      lastClosingEmployee: employee.name,
     };
   });
 
   data.closingLog.push(entry);
   await writeData(data);
 
-  // Async sheet backup — do not await or block on failure
   appendClosingEntryToSheet(entry).catch(() => {});
 
   const flagged = changes.filter((c) => c.flagged).map((c) => c.ticketName);
-
   return NextResponse.json({ ok: true, entry, flagged });
 }
