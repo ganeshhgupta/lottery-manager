@@ -211,77 +211,34 @@ export default function DashboardClient({ slots: initialSlots, closingLog: initi
           </div>
         )}
 
-        {/* Desktop table */}
-        <div className="hidden md:block bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-slate-700 bg-slate-900/50">
-                <th className="text-left text-xs font-semibold text-slate-400 uppercase tracking-wider px-4 py-3 w-16">Slot</th>
-                <th className="text-left text-xs font-semibold text-slate-400 uppercase tracking-wider px-4 py-3 w-20">Photo</th>
-                <th className="text-left text-xs font-semibold text-slate-400 uppercase tracking-wider px-4 py-3">Ticket Name</th>
-                <th className="text-right text-xs font-semibold text-slate-400 uppercase tracking-wider px-4 py-3 w-36">Last Closing Count</th>
-              </tr>
-            </thead>
-            <tbody>
-              {displaySlots.map((slot, idx) => (
-                <tr
-                  key={slot.slotNumber}
-                  className={`border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors ${
-                    idx % 2 === 0 ? "" : "bg-slate-800/50"
-                  }`}
-                >
-                  <td className="px-4 py-3 text-slate-300 font-mono text-sm">{slot.slotNumber}</td>
-                  <td className="px-4 py-3">
-                    <TicketImage imageUrl={slot.imageUrl} ticketName={slot.ticketName} size={64} />
-                  </td>
-                  <td className="px-4 py-3 text-white font-medium">{slot.ticketName}</td>
-                  <td className="px-4 py-3 text-right">
-                    <span className={`font-mono text-lg font-semibold ${
-                      slot.lastClosingDate === "" && slot.currentCount === 0
-                        ? "text-slate-500"
-                        : "text-indigo-300"
-                    }`}>
-                      {slot.lastClosingDate === "" && slot.currentCount === 0 ? "—" : slot.currentCount}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Mobile 6-column icon grid */}
-        <div className="md:hidden grid grid-cols-6 gap-2">
+        {/* 6-column icon grid — all screen sizes */}
+        <div className="grid grid-cols-6 gap-2 sm:gap-3">
           {displaySlots.map((slot) => {
             const hasCount = !(slot.lastClosingDate === "" && slot.currentCount === 0);
             return (
-              <div
-                key={slot.slotNumber}
-                className="flex flex-col items-center gap-1"
-              >
+              <div key={slot.slotNumber} className="flex flex-col items-center gap-1">
                 {/* Square ticket image */}
                 <div className="relative w-full aspect-square">
                   <TicketImage
                     imageUrl={slot.imageUrl}
                     ticketName={slot.ticketName}
-                    size={0}
                     fill
                   />
                   {/* Slot number badge */}
-                  <div className="absolute top-0.5 left-0.5 bg-black/60 text-white text-[9px] font-bold px-1 rounded leading-tight">
+                  <div className="absolute top-1 left-1 bg-black/70 text-white text-[10px] sm:text-xs font-bold px-1 sm:px-1.5 rounded leading-tight">
                     {slot.slotNumber}
                   </div>
                   {/* Count badge */}
-                  <div className={`absolute bottom-0.5 right-0.5 text-[10px] font-bold px-1 rounded leading-tight ${
+                  <div className={`absolute bottom-1 right-1 text-[10px] sm:text-xs font-bold px-1 sm:px-1.5 rounded leading-tight ${
                     hasCount
-                      ? "bg-indigo-600/80 text-white"
-                      : "bg-slate-700/70 text-slate-400"
+                      ? "bg-indigo-600/90 text-white"
+                      : "bg-slate-700/80 text-slate-400"
                   }`}>
                     {hasCount ? slot.currentCount : "—"}
                   </div>
                 </div>
-                {/* Ticket name — truncated */}
-                <div className="text-[9px] text-slate-400 text-center leading-tight w-full truncate px-0.5">
+                {/* Ticket name */}
+                <div className="text-[9px] sm:text-[11px] text-slate-400 text-center leading-tight w-full truncate px-0.5">
                   {slot.ticketName}
                 </div>
               </div>
