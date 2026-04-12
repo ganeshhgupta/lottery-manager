@@ -1,0 +1,294 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Slot, ClosingLogEntry } from "@/lib/types";
+import TicketImage from "@/components/TicketImage";
+import ClosingModal from "@/components/ClosingModal";
+import AddTicketModal from "@/components/AddTicketModal";
+
+interface Props {
+  slots: Slot[];
+  closingLog: ClosingLogEntry[];
+}
+
+interface UserInfo {
+  employeeName: string;
+  role: string;
+}
+
+export default function DashboardClient({ slots: initialSlots, closingLog: initialLog }: Props) {
+  const router = useRouter();
+  const [slots, setSlots] = useState(initialSlots);
+  const [closingLog, setClosingLog] = useState(initialLog);
+  const [version, setVersion] = useState(initialLog.length); // 0 = seed, 1..n = entry index
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
+  const [showClosingModal, setShowClosingModal] = useState(false);
+  const [showAddTicketModal, setShowAddTicketModal] = useState(false);
+  const [flaggedNames, setFlaggedNames] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((d) => setUserInfo(d))
+      .catch(() => {});
+  }, []);
+
+  const totalVersions = closingLog.length + 1; // version 0 is seed
+  const isLatest = version === closingLog.length;
+
+  // Build the display state for the current version
+  function getSlotsForVersion(v: number): Slot[] {
+    if (v === closingLog.length) return slots;
+    // Reconstruct slot counts from log entries up to version v
+    const base: Slot[] = slots.map((s) => ({
+      ...s,
+      currentCount: 0,
+      lastClosingDate: "",
+      lastClosingShift: "Morning" as const,
+      lastClosingEmployee: "N/A",
+    }));
+    // Apply log entries 0..v-1
+    for (let i = 0; i < v; i++) {
+      const entry = closingLog[i];
+      entry.changes.forEach((c) => {
+        const slot = base.find((s) => s.slotNumber === c.slotNumber);
+        if (slot) {
+          slot.currentCount = c.newCount;
+          slot.lastClosingDate = entry.date;
+          slot.lastClosingShift = entry.shift;
+          slot.lastClosingEmployee = entry.employeeName;
+        }
+      });
+    }
+    return base;
+  }
+
+  const displaySlots = getSlotsForVersion(version);
+  const currentEntry = version > 0 ? closingLog[version - 1] : null;
+
+  async function handleLogout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+  }
+
+  function handleClosingSuccess(updatedSlots: Slot[], newEntry: ClosingLogEntry, flagged: string[]) {
+    setSlots(updatedSlots);
+    setClosingLog((prev) => [...prev, newEntry]);
+    setVersion((prev) => prev + 1);
+    setFlaggedNames(flagged);
+    setShowClosingModal(false);
+  }
+
+  function handleTicketSuccess(updatedSlot: Slot) {
+    setSlots((prev) => prev.map((s) => s.slotNumber === updatedSlot.slotNumber ? updatedSlot : s));
+    setShowAddTicketModal(false);
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-900">
+      {/* Header */}
+      <header className="bg-slate-800 border-b border-slate-700 px-4 py-3">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">🎟️</span>
+            <span className="text-xl font-bold text-white">LotteryAudit</span>
+          </div>
+          <div className="flex items-center gap-3">
+            {userInfo && (
+              <>
+                <span className="text-slate-300 text-sm hidden sm:inline">{userInfo.employeeName}</span>
+                <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                  userInfo.role === "manager"
+                    ? "bg-indigo-600/30 text-indigo-300 border border-indigo-600/50"
+                    : "bg-slate-700 text-slate-300"
+                }`}>
+                  {userInfo.role === "manager" ? "Manager" : "Employee"}
+                </span>
+                {userInfo.role === "manager" && (
+                  <a href="/manager" className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors hidden sm:inline">
+                    Manager Panel
+                  </a>
+                )}
+              </>
+            )}
+            <button
+              onClick={handleLogout}
+              className="bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm px-3 py-1.5 rounded-lg transition-colors"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 py-6">
+        {/* Flagged warning */}
+        {flaggedNames.length > 0 && (
+          <div className="mb-4 px-4 py-3 bg-amber-900/40 border border-amber-600/50 rounded-lg text-amber-300 text-sm flex items-start gap-2">
+            <span className="text-lg leading-none mt-0.5">⚠</span>
+            <div>
+              <span className="font-semibold">Count increased for: </span>
+              {flaggedNames.join(", ")}
+              <button
+                onClick={() => setFlaggedNames([])}
+                className="ml-3 text-amber-400 hover:text-amber-200 underline"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Version navigator */}
+        <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 mb-5">
+          <div className="flex items-center justify-between mb-3">
+            <button
+              onClick={() => setVersion((v) => Math.max(0, v - 1))}
+              disabled={version === 0}
+              className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed text-sm rounded-lg transition-colors"
+            >
+              ← Prev
+            </button>
+            <div className="text-center">
+              <span className="text-white font-medium">
+                Dashboard (Version {version + 1} of {totalVersions})
+              </span>
+              {!isLatest && (
+                <div className="text-amber-400 text-xs mt-0.5">
+                  Viewing historical version — changes disabled
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => setVersion((v) => Math.min(closingLog.length, v + 1))}
+              disabled={isLatest}
+              className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed text-sm rounded-lg transition-colors"
+            >
+              Next →
+            </button>
+          </div>
+
+          {/* Metadata row */}
+          <div className="flex flex-wrap gap-x-8 gap-y-1 text-sm text-slate-400">
+            <span>
+              <span className="text-slate-500">Date:</span>{" "}
+              <span className="text-slate-200">{currentEntry?.date ?? "—"}</span>
+            </span>
+            <span>
+              <span className="text-slate-500">Shift:</span>{" "}
+              <span className="text-slate-200">{currentEntry?.shift ?? "—"}</span>
+            </span>
+            <span>
+              <span className="text-slate-500">Last Closing Employee:</span>{" "}
+              <span className="text-slate-200">{currentEntry?.employeeName ?? "—"}</span>
+            </span>
+          </div>
+        </div>
+
+        {/* Action buttons */}
+        {isLatest && (
+          <div className="flex flex-wrap gap-3 mb-5">
+            <button
+              onClick={() => setShowClosingModal(true)}
+              className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-5 py-2.5 rounded-lg transition-colors flex items-center gap-2"
+            >
+              <span>+</span> Add Closing Entry
+            </button>
+            <button
+              onClick={() => setShowAddTicketModal(true)}
+              className="bg-slate-700 hover:bg-slate-600 text-white font-medium px-5 py-2.5 rounded-lg transition-colors flex items-center gap-2"
+            >
+              <span>🎟️</span> Add New Ticket
+            </button>
+          </div>
+        )}
+
+        {/* Desktop table */}
+        <div className="hidden md:block bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-slate-700 bg-slate-900/50">
+                <th className="text-left text-xs font-semibold text-slate-400 uppercase tracking-wider px-4 py-3 w-16">Slot</th>
+                <th className="text-left text-xs font-semibold text-slate-400 uppercase tracking-wider px-4 py-3 w-20">Photo</th>
+                <th className="text-left text-xs font-semibold text-slate-400 uppercase tracking-wider px-4 py-3">Ticket Name</th>
+                <th className="text-right text-xs font-semibold text-slate-400 uppercase tracking-wider px-4 py-3 w-36">Last Closing Count</th>
+              </tr>
+            </thead>
+            <tbody>
+              {displaySlots.map((slot, idx) => (
+                <tr
+                  key={slot.slotNumber}
+                  className={`border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors ${
+                    idx % 2 === 0 ? "" : "bg-slate-800/50"
+                  }`}
+                >
+                  <td className="px-4 py-3 text-slate-300 font-mono text-sm">{slot.slotNumber}</td>
+                  <td className="px-4 py-3">
+                    <TicketImage imageUrl={slot.imageUrl} ticketName={slot.ticketName} size={64} />
+                  </td>
+                  <td className="px-4 py-3 text-white font-medium">{slot.ticketName}</td>
+                  <td className="px-4 py-3 text-right">
+                    <span className={`font-mono text-lg font-semibold ${
+                      slot.lastClosingDate === "" && slot.currentCount === 0
+                        ? "text-slate-500"
+                        : "text-indigo-300"
+                    }`}>
+                      {slot.lastClosingDate === "" && slot.currentCount === 0 ? "—" : slot.currentCount}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Mobile cards */}
+        <div className="md:hidden grid grid-cols-1 gap-3">
+          {displaySlots.map((slot) => (
+            <div
+              key={slot.slotNumber}
+              className="bg-slate-800 rounded-xl border border-slate-700 p-4 flex items-center gap-4"
+            >
+              <TicketImage imageUrl={slot.imageUrl} ticketName={slot.ticketName} size={56} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="text-xs text-slate-500 font-mono">Slot {slot.slotNumber}</div>
+                    <div className="text-white font-medium text-sm truncate">{slot.ticketName}</div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <div className="text-xs text-slate-500 mb-0.5">Count</div>
+                    <div className={`font-mono text-xl font-bold ${
+                      slot.lastClosingDate === "" && slot.currentCount === 0
+                        ? "text-slate-500"
+                        : "text-indigo-300"
+                    }`}>
+                      {slot.lastClosingDate === "" && slot.currentCount === 0 ? "—" : slot.currentCount}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </main>
+
+      {/* Modals */}
+      {showClosingModal && (
+        <ClosingModal
+          slots={slots}
+          onClose={() => setShowClosingModal(false)}
+          onSuccess={handleClosingSuccess}
+        />
+      )}
+      {showAddTicketModal && (
+        <AddTicketModal
+          slots={slots}
+          onClose={() => setShowAddTicketModal(false)}
+          onSuccess={handleTicketSuccess}
+        />
+      )}
+    </div>
+  );
+}
