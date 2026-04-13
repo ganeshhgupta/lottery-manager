@@ -86,13 +86,13 @@ async function localWrite(data: AppData): Promise<void> {
 
 // ─── Public API ──────────────────────────────────────────────────────────────
 
-const useBlob = () => Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+const hasBlobToken = () => Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 
 // Simple async mutex to prevent concurrent write races
 let writeLock: Promise<void> = Promise.resolve();
 
 export async function readData(): Promise<AppData> {
-  if (useBlob()) {
+  if (hasBlobToken()) {
     const data = await blobRead();
     if (data) return data;
     // Blob read failed — fall through to local
@@ -106,7 +106,7 @@ export async function writeData(data: AppData): Promise<void> {
   writeLock = new Promise<void>((resolve) => { release = resolve; });
   await current;
   try {
-    if (useBlob()) {
+    if (hasBlobToken()) {
       await blobWrite(data);
     } else {
       await localWrite(data);
