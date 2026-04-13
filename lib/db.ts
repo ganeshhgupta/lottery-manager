@@ -28,7 +28,13 @@ let writeLock: Promise<void> = Promise.resolve();
 export async function readData(): Promise<AppData> {
   const dataPath = await getDataPath();
   const raw = await fs.readFile(dataPath, "utf-8");
-  return JSON.parse(raw) as AppData;
+  const data = JSON.parse(raw) as AppData;
+  // Migration: seed ticketCatalog from bundle if missing (old /tmp data)
+  if (!data.ticketCatalog) {
+    const bundle = JSON.parse(await fs.readFile(BUNDLE_PATH, "utf-8")) as AppData;
+    data.ticketCatalog = bundle.ticketCatalog ?? [];
+  }
+  return data;
 }
 
 export async function writeData(data: AppData): Promise<void> {

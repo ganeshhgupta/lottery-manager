@@ -28,5 +28,31 @@
   "employees": [
     { "id": "1", "pin": "9530", "name": "Manager", "role": "manager" }
   ],
-  "closingLog": []
+  "closingLog": [],
+  "ticketCatalog": [
+    { "id": "tc1",  "name": "9s In A Line",                   "imageUrl": "https://www.texaslottery.com/export/sites/lottery/Images/scratchoffs/2710_img1.gif" },
+    { "id": "tc2",  "name": "Crazy 8s",                       "imageUrl": "https://www.texaslottery.com/export/sites/lottery/Images/scratchoffs/2656_img1.gif" },
+    { "id": "tc3",  "name": "Cash Line Bingo",                "imageUrl": "https://www.texaslottery.com/export/sites/lottery/Images/scratchoffs/2647_img1.gif" },
+    { "id": "tc4",  "name": "Royal Riches",                   "imageUrl": "https://www.texaslottery.com/export/sites/lottery/Images/scratchoffs/2672_img1.gif" },
+    { "id": "tc5",  "name": "Texas Loteria",                  "imageUrl": "https://www.texaslottery.com/export/sites/lottery/Images/scratchoffs/2628_img1.gif" },
+    { "id": "tc6",  "name": "30X The Cash Word Search",       "imageUrl": "https://www.texaslottery.com/export/sites/lottery/Images/scratchoffs/2711_img1.gif" },
+    { "id": "tc7",  "name": "50X The Cash",                   "imageUrl": "https://www.texaslottery.com/export/sites/lottery/Images/scratchoffs/2712_img1.gif" },
+    { "id": "tc8",  "name": "Flame Cash",                     "imageUrl": "" },
+    { "id": "tc9",  "name": "Super Loteria",                  "imageUrl": "https://www.texaslottery.com/export/sites/lottery/Images/scratchoffs/2648_img1.gif" },
+    { "id": "tc10", "name": "Bingo Times 20",                 "imageUrl": "https://www.texaslottery.com/export/sites/lottery/Images/scratchoffs/2667_img1.gif" },
+    { "id": "tc11", "name": "Bonus Break the Bank",           "imageUrl": "https://www.texaslottery.com/export/sites/lottery/Images/scratchoffs/2430_img1.gif" },
+    { "id": "tc12", "name": "Super Crossword",                "imageUrl": "https://www.texaslottery.com/export/sites/lottery/Images/scratchoffs/2581_img1.gif" },
+    { "id": "tc13", "name": "Slots of Luck",                  "imageUrl": "https://www.texaslottery.com/export/sites/lottery/Images/scratchoffs/2724_img1.gif" },
+    { "id": "tc14", "name": "$1,000,000 Riches",              "imageUrl": "https://www.texaslottery.com/export/sites/lottery/Images/scratchoffs/2636_img1.gif" },
+    { "id": "tc15", "name": "Mega Loteria",                   "imageUrl": "https://www.texaslottery.com/export/sites/lottery/Images/scratchoffs/2669_img1.gif" },
+    { "id": "tc16", "name": "50X Cashword",                   "imageUrl": "https://www.texaslottery.com/export/sites/lottery/Images/scratchoffs/2668_img1.gif" },
+    { "id": "tc17", "name": "Mega Loteria (Limited Edition)", "imageUrl": "https://www.texaslottery.com/export/sites/lottery/Images/scratchoffs/2676_img1.gif" },
+    { "id": "tc18", "name": "200X The Cash",                  "imageUrl": "https://www.texaslottery.com/export/sites/lottery/Images/scratchoffs/2714_img1.gif" },
+    { "id": "tc19", "name": "777",                            "imageUrl": "https://www.texaslottery.com/export/sites/lottery/Images/scratchoffs/2632_img1.gif" },
+    { "id": "tc20", "name": "$1,000,000 Crossword",           "imageUrl": "https://www.texaslottery.com/export/sites/lottery/Images/scratchoffs/2658_img1.gif" },
+    { "id": "tc21", "name": "Mega Jumbo Bucks",               "imageUrl": "https://www.texaslottery.com/export/sites/lottery/Images/scratchoffs/2638_img1.gif" },
+    { "id": "tc22", "name": "Million Dollar Loteria",         "imageUrl": "https://www.texaslottery.com/export/sites/lottery/Images/scratchoffs/2653_img1.gif" },
+    { "id": "tc23", "name": "$1,000,000 Cash",                "imageUrl": "https://www.texaslottery.com/export/sites/lottery/Images/scratchoffs/2744_img1.gif" },
+    { "id": "tc24", "name": "Premier Play",                   "imageUrl": "https://www.texaslottery.com/export/sites/lottery/Images/scratchoffs/2661_img1.gif" }
+  ]
 }

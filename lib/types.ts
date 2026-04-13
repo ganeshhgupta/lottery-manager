@@ -37,10 +37,17 @@ export interface ClosingLogEntry {
   changes: ClosingDelta[];
 }
 
+export interface TicketCatalogItem {
+  id: string;
+  name: string;
+  imageUrl: string;
+}
+
 export interface AppData {
   slots: Slot[];
   employees: Employee[];
   closingLog: ClosingLogEntry[];
+  ticketCatalog: TicketCatalogItem[];
 }
 
 export interface SessionData {

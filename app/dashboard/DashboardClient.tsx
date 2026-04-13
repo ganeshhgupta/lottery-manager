@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Slot, ClosingLogEntry, Shift } from "@/lib/types";
+import { Slot, ClosingLogEntry, Shift, TicketCatalogItem } from "@/lib/types";
 import TicketImage from "@/components/TicketImage";
 import AddTicketModal from "@/components/AddTicketModal";
 
 interface Props {
   slots: Slot[];
   closingLog: ClosingLogEntry[];
+  catalog: TicketCatalogItem[];
 }
 
 interface UserInfo { employeeName: string; role: string; }
@@ -26,7 +27,7 @@ function padCount(n: number): string {
   return String(n).padStart(3, "0");
 }
 
-export default function DashboardClient({ slots: initialSlots, closingLog: initialLog }: Props) {
+export default function DashboardClient({ slots: initialSlots, closingLog: initialLog, catalog: initialCatalog }: Props) {
   const router = useRouter();
   const [slots, setSlots] = useState(initialSlots);
   const [closingLog, setClosingLog] = useState(initialLog);
@@ -35,7 +36,7 @@ export default function DashboardClient({ slots: initialSlots, closingLog: initi
   const [showAddTicketModal, setShowAddTicketModal] = useState(false);
   const [flaggedNames, setFlaggedNames] = useState<string[]>([]);
 
-  // Inline closing state
+  // Closing flow state
   const [closingMode, setClosingMode] = useState<ClosingMode>("off");
   const [authEmpId, setAuthEmpId] = useState("");
   const [authPin, setAuthPin] = useState("");
@@ -47,6 +48,12 @@ export default function DashboardClient({ slots: initialSlots, closingLog: initi
   const [editCounts, setEditCounts] = useState<Record<string, string>>({});
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState("");
+
+  // Slot picker state
+  const [catalog] = useState(initialCatalog);
+  const [pickerSlot, setPickerSlot] = useState<number | null>(null);
+  const [assigningSlot, setAssigningSlot] = useState<number | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     fetch("/api/auth/me").then((r) => r.json()).then((d) => setUserInfo(d)).catch(() => {});
@@ -115,11 +122,9 @@ export default function DashboardClient({ slots: initialSlots, closingLog: initi
     e.preventDefault();
     setSubmitError(""); setSubmitLoading(true);
     try {
-      // Send counts as strings (preserving leading zeros) — API accepts both
       const countsStr: Record<string, string> = {};
       slots.forEach((s) => {
         const raw = editCounts[s.slotNumber] ?? "";
-        // Strip non-digit chars, keep leading zeros, clamp to 3 digits
         const digits = raw.replace(/\D/g, "").slice(0, 3);
         countsStr[s.slotNumber] = digits === "" ? padCount(s.currentCount) : digits;
       });
@@ -146,6 +151,43 @@ export default function DashboardClient({ slots: initialSlots, closingLog: initi
     finally { setSubmitLoading(false); }
   }
 
+  // Slot picker handlers
+  function openPicker(slotNumber: number) {
+    setPickerSlot(slotNumber);
+  }
+
+  function startLongPress(slotNumber: number) {
+    longPressTimer.current = setTimeout(() => openPicker(slotNumber), 500);
+  }
+
+  function cancelLongPress() {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }
+
+  async function handlePickTicket(ticket: TicketCatalogItem) {
+    if (pickerSlot === null) return;
+    setAssigningSlot(pickerSlot);
+    setPickerSlot(null);
+    try {
+      const res = await fetch("/api/slots/assign", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: verifiedId, pin: authPin,
+          slotNumber: pickerSlot,
+          ticketName: ticket.name, imageUrl: ticket.imageUrl,
+        }),
+      });
+      if (res.ok) {
+        setSlots((prev) => prev.map((s) =>
+          s.slotNumber === pickerSlot ? { ...s, ticketName: ticket.name, imageUrl: ticket.imageUrl } : s
+        ));
+      }
+    } finally { setAssigningSlot(null); }
+  }
+
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
     router.push("/login");
@@ -168,6 +210,7 @@ export default function DashboardClient({ slots: initialSlots, closingLog: initi
           <div className="flex items-center gap-3">
             {userInfo ? (
               <>
+                <a href="/tickets" className="text-slate-400 hover:text-white text-sm transition-colors hidden sm:inline">Tickets</a>
                 <span className="text-slate-300 text-sm hidden sm:inline">{userInfo.employeeName}</span>
                 <span className={`text-xs px-2 py-1 rounded-full font-medium ${userInfo.role === "manager" ? "bg-indigo-600/30 text-indigo-300 border border-indigo-600/50" : "bg-slate-700 text-slate-300"}`}>
                   {userInfo.role === "manager" ? "Manager" : "Employee"}
@@ -178,7 +221,10 @@ export default function DashboardClient({ slots: initialSlots, closingLog: initi
                 <button onClick={handleLogout} className="bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm px-3 py-1.5 rounded-lg transition-colors">Logout</button>
               </>
             ) : (
-              <a href="/login" className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-4 py-1.5 rounded-lg transition-colors font-medium">Sign In</a>
+              <>
+                <a href="/tickets" className="text-slate-400 hover:text-white text-sm transition-colors hidden sm:inline">Tickets</a>
+                <a href="/login" className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-4 py-1.5 rounded-lg transition-colors font-medium">Sign In</a>
+              </>
             )}
           </div>
         </div>
@@ -234,11 +280,33 @@ export default function DashboardClient({ slots: initialSlots, closingLog: initi
             <div className="grid grid-cols-6 gap-2 sm:gap-3">
               {slots.map((slot) => (
                 <div key={slot.slotNumber} className="flex flex-col gap-1">
-                  <div className="relative w-full aspect-square">
+                  <div
+                    className="relative w-full aspect-square select-none"
+                    onTouchStart={() => startLongPress(slot.slotNumber)}
+                    onTouchEnd={cancelLongPress}
+                    onTouchMove={cancelLongPress}
+                    onContextMenu={(e) => e.preventDefault()}
+                  >
                     <TicketImage imageUrl={slot.imageUrl} ticketName={slot.ticketName} fill />
+                    {/* Slot number — top left */}
                     <div className="absolute top-0.5 left-0.5 bg-black/70 text-white text-[9px] sm:text-[10px] font-bold px-1 rounded leading-tight">
                       {slot.slotNumber}
                     </div>
+                    {/* Swap button — top right (desktop click trigger) */}
+                    <button
+                      type="button"
+                      onClick={() => openPicker(slot.slotNumber)}
+                      className="absolute top-0.5 right-0.5 bg-black/70 hover:bg-indigo-600/90 text-white text-[10px] px-1 py-0.5 rounded leading-tight transition-colors"
+                      title="Change ticket"
+                    >
+                      ⇄
+                    </button>
+                    {/* Assigning spinner overlay */}
+                    {assigningSlot === slot.slotNumber && (
+                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-lg">
+                        <span className="text-white text-xs">…</span>
+                      </div>
+                    )}
                   </div>
                   <input
                     type="text"
@@ -377,6 +445,38 @@ export default function DashboardClient({ slots: initialSlots, closingLog: initi
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* ── SLOT PICKER MODAL ── */}
+      {pickerSlot !== null && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700 flex-shrink-0">
+              <div>
+                <p className="text-white font-semibold text-sm">Slot {pickerSlot} — Pick a ticket</p>
+                <p className="text-slate-400 text-xs mt-0.5">Current: {slots.find(s => s.slotNumber === pickerSlot)?.ticketName}</p>
+              </div>
+              <button onClick={() => setPickerSlot(null)} className="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+            </div>
+            <div className="overflow-y-auto flex-1 p-4">
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                {catalog.map((ticket) => (
+                  <button
+                    key={ticket.id}
+                    type="button"
+                    onClick={() => handlePickTicket(ticket)}
+                    className="flex flex-col gap-1 rounded-xl overflow-hidden border border-slate-700 hover:border-indigo-500 transition-colors bg-slate-700/50 hover:bg-slate-700"
+                  >
+                    <div className="relative w-full aspect-square">
+                      <TicketImage imageUrl={ticket.imageUrl} ticketName={ticket.name} fill />
+                    </div>
+                    <p className="text-[10px] text-slate-300 text-center leading-tight px-1 pb-1.5 line-clamp-2">{ticket.name}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
