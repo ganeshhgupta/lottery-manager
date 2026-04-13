@@ -22,6 +22,10 @@ function getAutoShift(): Shift {
   return "Night";
 }
 
+function padCount(n: number): string {
+  return String(n).padStart(3, "0");
+}
+
 export default function DashboardClient({ slots: initialSlots, closingLog: initialLog }: Props) {
   const router = useRouter();
   const [slots, setSlots] = useState(initialSlots);
@@ -97,7 +101,7 @@ export default function DashboardClient({ slots: initialSlots, closingLog: initi
       } else {
         setVerifiedId(data.employeeId); setVerifiedName(data.employeeName);
         const init: Record<string, string> = {};
-        slots.forEach((s) => { init[s.slotNumber] = String(s.currentCount); });
+        slots.forEach((s) => { init[s.slotNumber] = padCount(s.currentCount); });
         setEditCounts(init);
         setShift(getAutoShift());
         setSubmitError("");
@@ -111,14 +115,17 @@ export default function DashboardClient({ slots: initialSlots, closingLog: initi
     e.preventDefault();
     setSubmitError(""); setSubmitLoading(true);
     try {
-      const countsNum: Record<string, number> = {};
+      // Send counts as strings (preserving leading zeros) — API accepts both
+      const countsStr: Record<string, string> = {};
       slots.forEach((s) => {
-        const n = parseInt(editCounts[s.slotNumber], 10);
-        countsNum[s.slotNumber] = isNaN(n) ? s.currentCount : Math.min(999, Math.max(0, n));
+        const raw = editCounts[s.slotNumber] ?? "";
+        // Strip non-digit chars, keep leading zeros, clamp to 3 digits
+        const digits = raw.replace(/\D/g, "").slice(0, 3);
+        countsStr[s.slotNumber] = digits === "" ? padCount(s.currentCount) : digits;
       });
       const res = await fetch("/api/closing/submit", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ employeeId: verifiedId, pin: authPin, shift, counts: countsNum }),
+        body: JSON.stringify({ employeeId: verifiedId, pin: authPin, shift, counts: countsStr }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -189,31 +196,6 @@ export default function DashboardClient({ slots: initialSlots, closingLog: initi
           </div>
         )}
 
-        {/* ── AUTH BANNER ── */}
-        {closingMode === "auth" && (
-          <form onSubmit={handleVerify} className="mb-4 bg-slate-800 border border-indigo-500/50 rounded-xl p-4">
-            <p className="text-sm text-slate-400 mb-3">Enter your ID and PIN to start a closing entry.</p>
-            <div className="flex flex-wrap items-end gap-3">
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">Employee ID</label>
-                <input type="text" value={authEmpId} onChange={(e) => setAuthEmpId(e.target.value)} required autoFocus
-                  className="w-28 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="ID" />
-              </div>
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">PIN</label>
-                <input type="password" value={authPin} onChange={(e) => setAuthPin(e.target.value)} required maxLength={4} inputMode="numeric"
-                  className="w-24 bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm tracking-widest text-center focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="••••" />
-              </div>
-              <button type="submit" disabled={authLoading}
-                className="bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 text-white font-semibold px-5 py-2 rounded-lg text-sm transition-colors">
-                {authLoading ? "Checking…" : "Continue →"}
-              </button>
-              <button type="button" onClick={cancelClosing} className="text-slate-400 hover:text-white text-sm px-3 py-2 rounded-lg transition-colors">Cancel</button>
-            </div>
-            {authError && <p className="mt-2 text-red-400 text-sm">{authError}</p>}
-          </form>
-        )}
-
         {/* ── EDIT MODE ── */}
         {closingMode === "edit" && (
           <form onSubmit={handleSubmit}>
@@ -259,9 +241,15 @@ export default function DashboardClient({ slots: initialSlots, closingLog: initi
                     </div>
                   </div>
                   <input
-                    type="number" min={0} max={999}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={3}
                     value={editCounts[slot.slotNumber] ?? ""}
-                    onChange={(e) => setEditCounts((prev) => ({ ...prev, [slot.slotNumber]: e.target.value }))}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, "").slice(0, 3);
+                      setEditCounts((prev) => ({ ...prev, [slot.slotNumber]: val }));
+                    }}
                     className="w-full bg-slate-700 border border-indigo-500/50 rounded px-1 py-1 text-white text-center text-xs sm:text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
@@ -271,7 +259,7 @@ export default function DashboardClient({ slots: initialSlots, closingLog: initi
         )}
 
         {/* ── VIEW MODE ── */}
-        {closingMode === "off" && (
+        {closingMode !== "edit" && (
           <>
             {/* Version navigator */}
             <div className="bg-slate-800 rounded-xl border border-slate-700 p-4 mb-4">
@@ -324,7 +312,7 @@ export default function DashboardClient({ slots: initialSlots, closingLog: initi
                         {slot.slotNumber}
                       </div>
                       <div className={`absolute bottom-0.5 right-0.5 text-[9px] sm:text-[10px] font-bold px-1 rounded leading-tight ${hasCount ? "bg-indigo-600/90 text-white" : "bg-slate-700/80 text-slate-400"}`}>
-                        {hasCount ? slot.currentCount : "—"}
+                        {hasCount ? padCount(slot.currentCount) : "—"}
                       </div>
                     </div>
                     <div className="text-[9px] sm:text-[11px] text-slate-400 text-center leading-tight w-full truncate px-0.5">
@@ -337,6 +325,60 @@ export default function DashboardClient({ slots: initialSlots, closingLog: initi
           </>
         )}
       </main>
+
+      {/* ── AUTH POPUP ── */}
+      {closingMode === "auth" && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <form onSubmit={handleVerify} className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl p-6 w-full max-w-xs flex flex-col gap-4">
+            <h2 className="text-base font-bold text-white text-center">Employee Sign-In</h2>
+
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">Employee ID</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={authEmpId}
+                onChange={(e) => setAuthEmpId(e.target.value)}
+                required
+                autoFocus
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2.5 text-white text-center text-lg font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="ID"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">PIN</label>
+              <input
+                type="password"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={authPin}
+                onChange={(e) => setAuthPin(e.target.value)}
+                required
+                maxLength={4}
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2.5 text-white tracking-[0.5em] text-center text-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="••••"
+              />
+            </div>
+
+            {authError && (
+              <p className="text-red-400 text-sm text-center -mt-1">{authError}</p>
+            )}
+
+            <div className="flex gap-2">
+              <button type="button" onClick={cancelClosing}
+                className="flex-1 px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-white text-sm rounded-lg transition-colors">
+                Cancel
+              </button>
+              <button type="submit" disabled={authLoading}
+                className="flex-1 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 text-white font-semibold text-sm rounded-lg transition-colors">
+                {authLoading ? "…" : "Continue →"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {showAddTicketModal && (
         <AddTicketModal slots={slots} onClose={() => setShowAddTicketModal(false)} onSuccess={handleTicketSuccess} />

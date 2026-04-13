@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
     employeeId: string;
     pin: string;
     shift: Shift;
-    counts: Record<string, number>;
+    counts: Record<string, number | string>;
   };
 
   if (!employeeId || !pin || !shift || !counts) {
@@ -28,8 +28,9 @@ export async function POST(req: NextRequest) {
   // Build changes array — accept any 0–999 count
   const changes: ClosingDelta[] = data.slots.map((slot) => {
     const key = String(slot.slotNumber);
-    const raw = key in counts ? Number(counts[key]) : slot.currentCount;
-    const newCount = Math.min(999, Math.max(0, Math.floor(raw)));
+    const rawVal = key in counts ? counts[key] : slot.currentCount;
+    const parsed = typeof rawVal === "string" ? parseInt(rawVal, 10) : Number(rawVal);
+    const newCount = Math.min(999, Math.max(0, isNaN(parsed) ? slot.currentCount : Math.floor(parsed)));
     const delta = newCount - slot.currentCount;
     return {
       slotNumber: slot.slotNumber,
