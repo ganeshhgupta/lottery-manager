@@ -45,13 +45,19 @@ async function blobRead(): Promise<AppData | null> {
 }
 
 async function blobWrite(data: AppData): Promise<void> {
-  const { put } = await import("@vercel/blob");
-  const result = await put(BLOB_FILENAME, JSON.stringify(data), {
-    access: "public",
-    contentType: "application/json",
-    addRandomSuffix: false,
-  });
-  blobUrl = result.url;
+  try {
+    const { put } = await import("@vercel/blob");
+    const result = await put(BLOB_FILENAME, JSON.stringify(data), {
+      access: "public",
+      contentType: "application/json",
+      addRandomSuffix: false,
+    });
+    blobUrl = result.url;
+    console.log("[db] Blob write OK:", blobUrl);
+  } catch (err) {
+    console.error("[db] Blob write failed, falling back to local:", String(err));
+    await localWrite(data);
+  }
 }
 
 // ─── Local file-system helpers (dev + Vercel /tmp fallback) ─────────────────
